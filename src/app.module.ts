@@ -16,6 +16,10 @@ import { AccountEntity } from './entities/account.entity';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RestaurantTableModule } from './modules/table/table.module';
+import { WebsocketModule } from './websocket/websocket.module';
+import { CategoryModule } from './modules/category/category.module';
+import { OrderItemModule } from './modules/order-item/order-item.module';
+import { MenuItemModule } from './modules/menu-item/menu-item.module';
 
 @Module({
   imports: [
@@ -44,6 +48,7 @@ import { RestaurantTableModule } from './modules/table/table.module';
           OrderEntity,
           OrderItemEntity,
           AccountEntity,
+          CategoryEntity,
         ],
       }),
     }),
@@ -53,6 +58,10 @@ import { RestaurantTableModule } from './modules/table/table.module';
     AuthModule,
     RestaurantTableModule,
     RestaurantModule,
+    WebsocketModule,
+    CategoryModule,
+    OrderItemModule,
+    MenuItemModule,
   ],
   controllers: [AppController],
   providers: [AppService],

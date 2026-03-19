@@ -1,10 +1,4 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { MenuItemEntity } from './menu-item.entity';
 import { OrderEntity } from './orders.entity';
 import { decimalTransformer } from '../common/database/decimal.transformer';

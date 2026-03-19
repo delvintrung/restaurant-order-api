@@ -8,6 +8,7 @@ import { CreateTableDto } from './dto/create-table.dto';
 import { RestaurantTableEntity } from 'src/entities/table.entity';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { TableStatus } from 'src/common/enums/table-status.enum';
+import { CurrentUserDto } from '../account/dto/current-user.dto';
 
 @Injectable()
 export class RestaurantTableService {
@@ -20,13 +21,13 @@ export class RestaurantTableService {
 
   async create(
     createTableDto: CreateTableDto,
-    @CurrentUser() user: AccountEntity,
+    @CurrentUser() user: CurrentUserDto,
   ): Promise<RestaurantTableEntity> {
     const table = new RestaurantTableEntity();
     table.restaurantId = createTableDto.restaurantId;
     table.tableNumber = createTableDto.tableNumber;
     table.qrCodeToken = createTableDto.qrCodeToken;
-    table.createdBy = user.id;
+    table.createdBy = user.role;
     const savedTable = await this.tableRepository.save(table);
 
     return savedTable;
@@ -73,7 +74,7 @@ export class RestaurantTableService {
   async update(
     id: string,
     updateTableDto: UpdateTableDto,
-    @CurrentUser() user: AccountEntity,
+    @CurrentUser() user: CurrentUserDto,
   ): Promise<RestaurantTableEntity> {
     const table = await this.findOne(id);
 
@@ -84,7 +85,7 @@ export class RestaurantTableService {
       ...(updateTableDto.qrCodeToken !== undefined
         ? { qrCodeToken: updateTableDto.qrCodeToken }
         : {}),
-      updatedBy: user.id,
+      updatedBy: user.role,
     };
 
     const updatedTable = this.tableRepository.merge(table, payload);
