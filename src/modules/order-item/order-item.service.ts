@@ -7,6 +7,9 @@ import { UpdateOrderItemDto } from './dto/update-order-item.dto';
 import { MenuItemEntity } from 'src/entities/menu-item.entity';
 import { AccountEntity } from 'src/entities/account.entity';
 import { OrderService } from '../order/order.service';
+import { ActionLogService } from '../actionLog/action-log.service';
+import { CreateActionLogDto } from '../actionLog/dto/create-action-log.dto';
+import { CurrentUserDto } from '../account/dto/current-user.dto';
 
 @Injectable()
 export class OrderItemService {
@@ -16,12 +19,28 @@ export class OrderItemService {
     @InjectRepository(MenuItemEntity)
     private readonly menuItemRepository: Repository<MenuItemEntity>,
     private readonly orderService: OrderService,
+    private readonly actionLogService: ActionLogService,
   ) {}
+
+  private resolveActor(currentUser: CurrentUserDto | AccountEntity) {
+    const userId =
+      (currentUser as CurrentUserDto).userId ??
+      (currentUser as AccountEntity).id;
+    const restaurantId =
+      (currentUser as CurrentUserDto).restaurantId ??
+      (currentUser as AccountEntity).restaurantId;
+    const role =
+      (currentUser as CurrentUserDto).role ??
+      String((currentUser as AccountEntity).role ?? 'system');
+
+    return { userId, restaurantId, role };
+  }
 
   async create(
     createOrderItemDto: CreateOrderItemDto,
     currentUser: AccountEntity,
   ): Promise<OrderItemEntity> {
+    const actor = this.resolveActor(currentUser);
     await this.orderService.findOne(createOrderItemDto.orderId);
 
     const menuItem = await this.menuItemRepository.findOne({
@@ -40,14 +59,27 @@ export class OrderItemService {
       quantity: createOrderItemDto.quantity,
       priceAtOrder: menuItem.price,
       note: createOrderItemDto.note,
-      createdBy: currentUser.id,
+      createdBy: actor.userId,
     });
 
     const savedItem = await this.orderItemRepository.save(orderItem);
     await this.orderService.recalculateOrderTotal(
       createOrderItemDto.orderId,
-      currentUser.id,
+      actor.userId,
     );
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      action: 'CREATE_ORDER_ITEM',
+      description: `Thêm món vào đơn ${savedItem.orderId}: ${savedItem.menuItemId}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      role: actor.role,
+    });
 
     return this.findOne(savedItem.id);
   }
@@ -83,6 +115,7 @@ export class OrderItemService {
     updateOrderItemDto: UpdateOrderItemDto,
     currentUser: AccountEntity,
   ): Promise<OrderItemEntity> {
+    const actor = this.resolveActor(currentUser);
     const orderItem = await this.findOne(id);
 
     if (updateOrderItemDto.menuItemId) {
@@ -108,13 +141,26 @@ export class OrderItemService {
       orderItem.note = updateOrderItemDto.note;
     }
 
-    orderItem.updatedBy = currentUser.id;
+    orderItem.updatedBy = actor.userId;
 
     await this.orderItemRepository.save(orderItem);
     await this.orderService.recalculateOrderTotal(
       orderItem.orderId,
-      currentUser.id,
+      actor.userId,
     );
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      action: 'UPDATE_ORDER_ITEM',
+      description: `Cập nhật món trong đơn ${orderItem.orderId}: ${orderItem.id}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      role: actor.role,
+    });
 
     return this.findOne(id);
   }
@@ -123,11 +169,25 @@ export class OrderItemService {
     id: string,
     currentUser: AccountEntity,
   ): Promise<{ message: string }> {
+    const actor = this.resolveActor(currentUser);
     const orderItem = await this.findOne(id);
     const orderId = orderItem.orderId;
 
     await this.orderItemRepository.remove(orderItem);
-    await this.orderService.recalculateOrderTotal(orderId, currentUser.id);
+    await this.orderService.recalculateOrderTotal(orderId, actor.userId);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      action: 'DELETE_ORDER_ITEM',
+      description: `Xóa món khỏi đơn ${orderId}: ${id}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      role: actor.role,
+    });
 
     return { message: `Order item ${id} deleted successfully` };
   }

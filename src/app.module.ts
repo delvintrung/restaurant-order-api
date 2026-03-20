@@ -20,37 +20,48 @@ import { WebsocketModule } from './websocket/websocket.module';
 import { CategoryModule } from './modules/category/category.module';
 import { OrderItemModule } from './modules/order-item/order-item.module';
 import { MenuItemModule } from './modules/menu-item/menu-item.module';
+import { ActionLogEntity } from './entities/action-log.entity';
+import { ActionLogModule } from './modules/actionLog/action-log.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.dev', '.env'],
+      envFilePath:
+        process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev',
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres' as const,
-        url: configService.get<string>('DATABASE_URL') || undefined,
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get<string>('DB_USERNAME', 'postgres'),
-        password: configService.get<string>('DB_PASSWORD', 'postgres'),
-        database: configService.get<string>('DB_NAME', 'restaurant_order'),
-        synchronize:
-          configService.get<string>('DB_SYNCHRONIZE', 'true') === 'true',
-        autoLoadEntities: true,
-        entities: [
-          RestaurantEntity,
-          RestaurantTableEntity,
-          CategoryEntity,
-          MenuItemEntity,
-          OrderEntity,
-          OrderItemEntity,
-          AccountEntity,
-          CategoryEntity,
-        ],
-      }),
+      useFactory: (configService: ConfigService) => {
+        const dbUrl = configService.get<string>('DATABASE_URL') || '';
+
+        // Detect cloud database type
+        const isNeonOrSupabase =
+          dbUrl.includes('neon') || dbUrl.includes('supabase');
+        const isRailway = dbUrl.includes('railway') || dbUrl.includes('rlwy');
+
+        // SSL config: only enable for Neon/Supabase
+        const ssl = isNeonOrSupabase ? { rejectUnauthorized: false } : false;
+
+        return {
+          type: 'postgres' as const,
+          url: dbUrl,
+          ssl,
+          synchronize:
+            configService.get<string>('DB_SYNCHRONIZE', 'true') === 'true',
+          autoLoadEntities: true,
+          entities: [
+            RestaurantEntity,
+            RestaurantTableEntity,
+            CategoryEntity,
+            MenuItemEntity,
+            OrderEntity,
+            OrderItemEntity,
+            AccountEntity,
+            ActionLogEntity,
+          ],
+        };
+      },
     }),
     DataStoreModule,
     OrderModule,
@@ -62,6 +73,7 @@ import { MenuItemModule } from './modules/menu-item/menu-item.module';
     CategoryModule,
     OrderItemModule,
     MenuItemModule,
+    ActionLogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -63,7 +63,7 @@ export class MenuItemController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Delete menu item' })
-  remove(@Param('id') id: string) {
-    return this.menuItemService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() currentUser: CurrentUserDto) {
+    return this.menuItemService.remove(id, currentUser);
   }
 }

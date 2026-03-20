@@ -5,14 +5,16 @@ import { CategoryEntity } from 'src/entities/category.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { AccountEntity } from 'src/entities/account.entity';
 import { CurrentUserDto } from '../account/dto/current-user.dto';
+import { ActionLogService } from '../actionLog/action-log.service';
+import { CreateActionLogDto } from '../actionLog/dto/create-action-log.dto';
 
 @Injectable()
 export class CategoryService {
   constructor(
     @InjectRepository(CategoryEntity)
     private readonly categoryRepository: Repository<CategoryEntity>,
+    private readonly actionLogService: ActionLogService,
   ) {}
 
   //   create
@@ -27,13 +29,23 @@ export class CategoryService {
     category.restaurantId = createCategoryDto.restaurantId;
     category.createdBy = currentUser.role;
     const savedCategory = await this.categoryRepository.save(category);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: currentUser.userId,
+      restaurantId: createCategoryDto.restaurantId,
+      action: 'CREATE_CATEGORY',
+      description: `Tạo danh mục: ${savedCategory.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, currentUser);
+
     return savedCategory;
   }
 
   async update(
     id: string,
     updateCategoryDto: UpdateCategoryDto,
-    currentUser: CurrentUserDto,
+    @CurrentUser() currentUser: CurrentUserDto,
   ) {
     const category = await this.categoryRepository.findOne({ where: { id } });
     if (!category) {
@@ -43,6 +55,16 @@ export class CategoryService {
     category.priority = updateCategoryDto.priority ?? category.priority;
     category.updatedBy = currentUser.role;
     const updatedCategory = await this.categoryRepository.save(category);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: currentUser.userId,
+      restaurantId: updatedCategory.restaurantId,
+      action: 'UPDATE_CATEGORY',
+      description: `Cập nhật danh mục: ${updatedCategory.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, currentUser);
+
     return updatedCategory;
   }
 

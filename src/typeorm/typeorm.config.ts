@@ -10,7 +10,7 @@ if (process.env.NODE_ENV !== 'production') {
 
     // Tự động load file môi trường dựa vào NODE_ENV
     const envFile =
-      process.env.NODE_ENV === 'development' ? '.env.dev' : '.env';
+      process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev';
     const envPath = path.resolve(process.cwd(), envFile);
 
     dotenv.config({ path: envPath });
@@ -24,15 +24,29 @@ if (process.env.NODE_ENV !== 'production') {
 import { DataSource } from 'typeorm';
 
 // Check if SSL is needed (Neon, Supabase or cloud databases)
+const dbUrl = process.env.DATABASE_URL || '';
 const host = process.env.TYPEORM_HOST || '';
 const port = parseInt(process.env.TYPEORM_PORT ?? '5432', 10);
-const isCloud =
-  process.env.DATABASE_URL || host.includes('supabase') || port === 6543;
+
+// Detect cloud database type from DATABASE_URL
+const isNeonOrSupabase =
+  dbUrl.includes('neon') ||
+  dbUrl.includes('supabase') ||
+  host.includes('supabase');
+const isRailway = dbUrl.includes('railway') || dbUrl.includes('rlwy');
+
+// Railway proxy doesn't require SSL
+const ssl = isNeonOrSupabase ? { rejectUnauthorized: false } : false;
+
+// For Railway: add ?sslmode=disable to URL if not already present
+const connectionUrl = isRailway && !dbUrl.includes('sslmode')
+  ? `${dbUrl}${dbUrl.includes('?') ? '&' : '?'}sslmode=disable`
+  : dbUrl;
 
 export const dataSource = new DataSource({
   type: 'postgres',
   // Ưu tiên dùng URL (Connection String) cho môi trường Cloud/Vercel/Neon
-  url: process.env.DATABASE_URL,
+  url: connectionUrl,
 
   // Fallback dùng biến rời cho môi trường Local
   host: !process.env.DATABASE_URL ? process.env.TYPEORM_HOST : undefined,
@@ -51,16 +65,17 @@ export const dataSource = new DataSource({
   entities: [__dirname + '/../entities/**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
 
-  // 1. Cấu hình SSL: Bắt buộc cho Neon và Supabase
-  ssl: isCloud ? { rejectUnauthorized: false } : false,
+  // SSL config: chỉ bắt buộc cho Neon/Supabase, Railway proxy không cần
+  ssl,
 
-  // 2. CẤU HÌNH QUAN TRỌNG ĐỂ CHỐNG TRÀN KẾT NỐI (POOL CONFIG)
-  // Neon khuyến nghị sử dụng pooled connection (pooler) và giới hạn connections
-  extra: isCloud
-    ? {
-        max: 10, // Số kết nối tối đa trong pool (Neon free tier hỗ trợ đến 10)
-        idleTimeoutMillis: 30000, // Tự động đóng kết nối thừa sau 30s
-        connectionTimeoutMillis: 5000, // Timeout nếu không kết nối được sau 5s
-      }
-    : {},
+  // CẤU HÌNH POOL CHO CLOUD DATABASES
+  // Railway proxy hỗ trợ connection pooling tốt hơn
+  extra:
+    isRailway || isNeonOrSupabase
+      ? {
+          max: 10,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+        }
+      : {},
 });

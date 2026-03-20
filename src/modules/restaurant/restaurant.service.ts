@@ -5,18 +5,22 @@ import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../account/decorators/current-user.decorator';
-import { AccountEntity } from 'src/entities/account.entity';
+import { CurrentUserDto } from '../account/dto/current-user.dto';
+import { ActionLogService } from '../actionLog/action-log.service';
+import { CreateActionLogDto } from '../actionLog/dto/create-action-log.dto';
 
 @Injectable()
 export class RestaurantService {
   constructor(
     @InjectRepository(RestaurantEntity)
     private readonly restaurantRepository: Repository<RestaurantEntity>,
+
+    private readonly actionLogService: ActionLogService,
   ) {}
 
   async create(
     createRestaurantDto: CreateRestaurantDto,
-    @CurrentUser() user: AccountEntity,
+    @CurrentUser() user: CurrentUserDto,
   ): Promise<RestaurantEntity> {
     const restaurant = this.restaurantRepository.create({
       name: createRestaurantDto.name,
@@ -25,7 +29,18 @@ export class RestaurantService {
       logoUrl: createRestaurantDto.logo_url,
       createdBy: user.role,
     });
-    return await this.restaurantRepository.save(restaurant);
+    const savedRestaurant = await this.restaurantRepository.save(restaurant);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: user.userId,
+      restaurantId: savedRestaurant.id,
+      action: 'CREATE_RESTAURANT',
+      description: `Tạo nhà hàng mới: ${savedRestaurant.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, user);
+
+    return savedRestaurant;
   }
 
   async findAll(): Promise<RestaurantEntity[]> {
@@ -47,7 +62,7 @@ export class RestaurantService {
   async update(
     id: string,
     updateRestaurantDto: UpdateRestaurantDto,
-    @CurrentUser() user: AccountEntity,
+    @CurrentUser() user: CurrentUserDto,
   ): Promise<RestaurantEntity> {
     const restaurant = await this.findOne(id); // Kiểm tra tồn tại trước
 
@@ -64,19 +79,79 @@ export class RestaurantService {
       ...(updateRestaurantDto.logo_url !== undefined
         ? { logoUrl: updateRestaurantDto.logo_url }
         : {}),
-      updatedBy: user.id,
+      updatedBy: user.role,
     };
 
     const updatedRestaurant = this.restaurantRepository.merge(
       restaurant,
       payload,
     );
-    return await this.restaurantRepository.save(updatedRestaurant);
+    const savedRestaurant =
+      await this.restaurantRepository.save(updatedRestaurant);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: user.userId,
+      restaurantId: savedRestaurant.id,
+      action: 'UPDATE_RESTAURANT',
+      description: `Cập nhật nhà hàng: ${savedRestaurant.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, user);
+
+    return savedRestaurant;
   }
 
-  async remove(id: string): Promise<{ message: string }> {
+  async activate(
+    id: string,
+    @CurrentUser() user: CurrentUserDto,
+  ): Promise<RestaurantEntity> {
+    const restaurant = await this.findOne(id);
+    restaurant.isActive = true;
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: user.userId,
+      restaurantId: user.restaurantId,
+      action: 'ACTIVATE_RESTAURANT',
+      description: `Kích hoạt nhà hàng: ${restaurant.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, user);
+
+    return await this.restaurantRepository.save(restaurant);
+  }
+
+  async deactivate(
+    id: string,
+    @CurrentUser() user: CurrentUserDto,
+  ): Promise<RestaurantEntity> {
+    const restaurant = await this.findOne(id);
+    restaurant.isActive = false;
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: user.userId,
+      restaurantId: user.restaurantId,
+      action: 'DEACTIVATE_RESTAURANT',
+      description: `Vô hiệu hóa nhà hàng: ${restaurant.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, user);
+
+    return await this.restaurantRepository.save(restaurant);
+  }
+
+  async remove(id: string, user: CurrentUserDto): Promise<{ message: string }> {
     const restaurant = await this.findOne(id);
     await this.restaurantRepository.remove(restaurant);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: user.userId,
+      restaurantId: user.restaurantId,
+      action: 'DELETE_RESTAURANT',
+      description: `Xóa nhà hàng: ${restaurant.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, user);
+
     return { message: `Đã xóa nhà hàng ${restaurant.name} thành công` };
   }
 }

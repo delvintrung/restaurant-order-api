@@ -71,7 +71,7 @@ export class OrderController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Delete an order' })
-  remove(@Param('id') id: string) {
-    return this.orderService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() currentUser: AccountEntity) {
+    return this.orderService.remove(id, currentUser);
   }
 }

@@ -7,6 +7,8 @@ import { RestaurantEntity } from 'src/entities/restaurant.entity';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { CurrentUserDto } from '../account/dto/current-user.dto';
+import { ActionLogService } from '../actionLog/action-log.service';
+import { CreateActionLogDto } from '../actionLog/dto/create-action-log.dto';
 
 @Injectable()
 export class MenuItemService {
@@ -17,6 +19,7 @@ export class MenuItemService {
     private readonly categoryRepository: Repository<CategoryEntity>,
     @InjectRepository(RestaurantEntity)
     private readonly restaurantRepository: Repository<RestaurantEntity>,
+    private readonly actionLogService: ActionLogService,
   ) {}
 
   async create(
@@ -40,7 +43,18 @@ export class MenuItemService {
       createdBy: currentUser.role,
     });
 
-    return this.menuItemRepository.save(menuItem);
+    const savedMenuItem = await this.menuItemRepository.save(menuItem);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: currentUser.userId,
+      restaurantId: savedMenuItem.restaurantId ?? currentUser.restaurantId,
+      action: 'CREATE_MENU_ITEM',
+      description: `Tạo món: ${savedMenuItem.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, currentUser);
+
+    return savedMenuItem;
   }
 
   async findAll(): Promise<MenuItemEntity[]> {
@@ -109,12 +123,34 @@ export class MenuItemService {
     menuItem.updatedBy = currentUser.userId;
 
     await this.menuItemRepository.save(menuItem);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: currentUser.userId,
+      restaurantId: menuItem.restaurantId ?? currentUser.restaurantId,
+      action: 'UPDATE_MENU_ITEM',
+      description: `Cập nhật món: ${menuItem.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, currentUser);
+
     return this.findOne(menuItem.id);
   }
 
-  async remove(id: string): Promise<{ message: string }> {
+  async remove(
+    id: string,
+    currentUser: CurrentUserDto,
+  ): Promise<{ message: string }> {
     const menuItem = await this.findOne(id);
     await this.menuItemRepository.remove(menuItem);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: currentUser.userId,
+      restaurantId: menuItem.restaurantId ?? currentUser.restaurantId,
+      action: 'DELETE_MENU_ITEM',
+      description: `Xóa món: ${menuItem.name}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, currentUser);
 
     return { message: `Menu item ${id} deleted successfully` };
   }

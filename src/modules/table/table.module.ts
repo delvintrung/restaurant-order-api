@@ -6,10 +6,12 @@ import { RestaurantTableEntity } from 'src/entities/table.entity';
 import { RestaurantTableService } from './table.service';
 import { RestaurantTableController } from './table.controller';
 import { RestaurantTableRepository } from 'src/repositories/table.repository';
+import { ActionLogModule } from '../actionLog/action-log.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([RestaurantTableEntity, RestaurantEntity]),
+    ActionLogModule,
   ],
   controllers: [RestaurantTableController],
   providers: [RestaurantTableService, RestaurantTableRepository],

@@ -31,4 +31,8 @@ export abstract class BaseEntity extends Base {
   @ApiProperty({ description: 'Xóa mềm?' })
   @Column({ name: 'isDeleted', default: false })
   isDeleted: boolean;
+
+  @ApiProperty({ description: 'Kích hoạt?' })
+  @Column({ name: 'isActive', default: true })
+  isActive: boolean;
 }

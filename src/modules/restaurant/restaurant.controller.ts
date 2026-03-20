@@ -17,7 +17,7 @@ import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { Roles } from '../account/decorators/role.decorator';
 import { CurrentUser } from '../account/decorators/current-user.decorator';
-import { AccountEntity } from 'src/entities/account.entity';
+import { CurrentUserDto } from '../account/dto/current-user.dto';
 
 @Controller('restaurants')
 @ApiTags('restaurants')
@@ -30,7 +30,7 @@ export class RestaurantController {
   @ApiOperation({ summary: 'Thêm nhà hàng mới' })
   create(
     @Body() createRestaurantDto: CreateRestaurantDto,
-    @CurrentUser() user: AccountEntity,
+    @CurrentUser() user: CurrentUserDto,
   ) {
     return this.restaurantService.create(createRestaurantDto, user);
   }
@@ -39,7 +39,7 @@ export class RestaurantController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @ApiOperation({ summary: 'Lấy toàn bộ danh sách nhà hàng' })
-  findAll(@CurrentUser() user: AccountEntity) {
+  findAll() {
     return this.restaurantService.findAll();
   }
 
@@ -56,16 +56,41 @@ export class RestaurantController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateRestaurantDto: UpdateRestaurantDto,
-    @CurrentUser() user: AccountEntity,
+    @CurrentUser() user: CurrentUserDto,
   ) {
     return this.restaurantService.update(id, updateRestaurantDto, user);
+  }
+
+  @Patch('active/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @ApiOperation({ summary: 'Cập nhật thông tin nhà hàng' })
+  activate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: CurrentUserDto,
+  ) {
+    return this.restaurantService.activate(id, user);
+  }
+
+  @Patch('deactivate/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @ApiOperation({ summary: 'Vô hiệu hóa nhà hàng' })
+  deactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: CurrentUserDto,
+  ) {
+    return this.restaurantService.deactivate(id, user);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @ApiOperation({ summary: 'Xóa nhà hàng' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.restaurantService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: CurrentUserDto,
+  ) {
+    return this.restaurantService.remove(id, user);
   }
 }

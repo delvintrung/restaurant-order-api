@@ -9,6 +9,8 @@ import { MenuItemEntity } from 'src/entities/menu-item.entity';
 import { Repository } from 'typeorm';
 import { AccountEntity } from 'src/entities/account.entity';
 import { CurrentUserDto } from '../account/dto/current-user.dto';
+import { ActionLogService } from '../actionLog/action-log.service';
+import { CreateActionLogDto } from '../actionLog/dto/create-action-log.dto';
 
 @Injectable()
 export class OrderService {
@@ -19,7 +21,22 @@ export class OrderService {
     private readonly orderItemRepository: Repository<OrderItemEntity>,
     @InjectRepository(MenuItemEntity)
     private readonly menuItemRepository: Repository<MenuItemEntity>,
+    private readonly actionLogService: ActionLogService,
   ) {}
+
+  private resolveActor(currentUser: CurrentUserDto | AccountEntity) {
+    const userId =
+      (currentUser as CurrentUserDto).userId ??
+      (currentUser as AccountEntity).id;
+    const restaurantId =
+      (currentUser as CurrentUserDto).restaurantId ??
+      (currentUser as AccountEntity).restaurantId;
+    const role =
+      (currentUser as CurrentUserDto).role ??
+      String((currentUser as AccountEntity).role ?? 'system');
+
+    return { userId, restaurantId, role };
+  }
 
   async create(
     createOrderDto: CreateOrderDto,
@@ -64,6 +81,16 @@ export class OrderService {
     }
 
     await this.recalculateOrderTotal(savedOrder.id, currentUser.userId);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
+      action: 'CREATE_ORDER',
+      description: `Tạo đơn hàng: ${savedOrder.id}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, currentUser);
+
     return this.findOne(savedOrder.id);
   }
 
@@ -96,17 +123,50 @@ export class OrderService {
     updateOrderStatusDto: UpdateOrderStatusDto,
     currentUser: AccountEntity,
   ): Promise<OrderEntity> {
+    const actor = this.resolveActor(currentUser);
     const order = await this.findOne(id);
     order.status = updateOrderStatusDto.status;
-    order.updatedBy = currentUser.id;
+    order.updatedBy = actor.userId;
 
     await this.orderRepository.save(order);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      action: 'UPDATE_ORDER_STATUS',
+      description: `Cập nhật trạng thái đơn ${order.id} thành ${order.status}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      role: actor.role,
+    });
+
     return this.findOne(order.id);
   }
 
-  async remove(id: string): Promise<{ message: string }> {
+  async remove(
+    id: string,
+    currentUser: AccountEntity,
+  ): Promise<{ message: string }> {
+    const actor = this.resolveActor(currentUser);
     const order = await this.findOne(id);
     await this.orderRepository.remove(order);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      action: 'DELETE_ORDER',
+      description: `Xóa đơn hàng: ${order.id}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, {
+      userId: actor.userId,
+      restaurantId: actor.restaurantId,
+      role: actor.role,
+    });
+
     return { message: `Order ${id} deleted successfully` };
   }
 

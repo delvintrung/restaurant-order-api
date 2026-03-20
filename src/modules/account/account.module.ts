@@ -5,10 +5,12 @@ import { AccountController } from './account.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { AccountEntity } from 'src/entities/account.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ActionLogModule } from '../actionLog/action-log.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([AccountEntity]),
+    ActionLogModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -9,6 +9,8 @@ import { RestaurantTableEntity } from 'src/entities/table.entity';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { TableStatus } from 'src/common/enums/table-status.enum';
 import { CurrentUserDto } from '../account/dto/current-user.dto';
+import { ActionLogService } from '../actionLog/action-log.service';
+import { CreateActionLogDto } from '../actionLog/dto/create-action-log.dto';
 
 @Injectable()
 export class RestaurantTableService {
@@ -17,6 +19,7 @@ export class RestaurantTableService {
     private readonly tableRepository: Repository<RestaurantTableEntity>,
     @InjectRepository(RestaurantEntity)
     private readonly restaurantRepository: Repository<RestaurantEntity>,
+    private readonly actionLogService: ActionLogService,
   ) {}
 
   async create(
@@ -29,6 +32,15 @@ export class RestaurantTableService {
     table.qrCodeToken = createTableDto.qrCodeToken;
     table.createdBy = user.role;
     const savedTable = await this.tableRepository.save(table);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: user.userId,
+      restaurantId: savedTable.restaurantId,
+      action: 'CREATE_TABLE',
+      description: `Tạo bàn số ${savedTable.tableNumber}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, user);
 
     return savedTable;
   }
@@ -89,7 +101,18 @@ export class RestaurantTableService {
     };
 
     const updatedTable = this.tableRepository.merge(table, payload);
-    return await this.tableRepository.save(updatedTable);
+    const savedTable = await this.tableRepository.save(updatedTable);
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: user.userId,
+      restaurantId: savedTable.restaurantId,
+      action: 'UPDATE_TABLE',
+      description: `Cập nhật bàn số ${savedTable.tableNumber}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, user);
+
+    return savedTable;
   }
 
   async remove(id: string): Promise<{ message: string }> {
