@@ -41,6 +41,11 @@ export class CreateMenuItemDto {
   @IsNotEmpty()
   imageUrl: string;
 
+  @ApiProperty({ example: 'phần' })
+  @IsString()
+  @IsNotEmpty()
+  unit: string;
+
   @ApiPropertyOptional({ example: true })
   @IsOptional()
   @Type(() => Boolean)

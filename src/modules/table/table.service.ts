@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { RestaurantEntity } from 'src/entities/restaurant.entity';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../account/decorators/current-user.decorator';
-import { AccountEntity } from 'src/entities/account.entity';
 import { CreateTableDto } from './dto/create-table.dto';
 import { RestaurantTableEntity } from 'src/entities/table.entity';
 import { UpdateTableDto } from './dto/update-table.dto';
@@ -26,10 +25,33 @@ export class RestaurantTableService {
     createTableDto: CreateTableDto,
     @CurrentUser() user: CurrentUserDto,
   ): Promise<RestaurantTableEntity> {
+    const restaurant = await this.restaurantRepository.findOne({
+      where: { id: createTableDto.restaurantId },
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException(
+        `Nhà hàng với ID ${createTableDto.restaurantId} không tồn tại`,
+      );
+    }
+
+    const existingTable = await this.tableRepository.findOne({
+      where: {
+        restaurantId: createTableDto.restaurantId,
+        tableNumber: createTableDto.tableNumber,
+      },
+    });
+
+    if (existingTable) {
+      throw new NotFoundException(
+        `Bàn số ${createTableDto.tableNumber} đã tồn tại trong nhà hàng ${createTableDto.restaurantId}`,
+      );
+    }
+
     const table = new RestaurantTableEntity();
     table.restaurantId = createTableDto.restaurantId;
     table.tableNumber = createTableDto.tableNumber;
-    table.qrCodeToken = createTableDto.qrCodeToken;
+    table.qrCodeToken = crypto.randomUUID();
     table.createdBy = user.role;
     const savedTable = await this.tableRepository.save(table);
 
@@ -74,6 +96,18 @@ export class RestaurantTableService {
     return table;
   }
 
+  async findOneByQrCodeToken(
+    qrCodeToken: string,
+  ): Promise<RestaurantTableEntity> {
+    const table = await this.tableRepository.findOne({
+      where: { qrCodeToken },
+    });
+    if (!table) {
+      throw new NotFoundException(`Bàn với mã QR ${qrCodeToken} không tồn tại`);
+    }
+    return table;
+  }
+
   async changeStatus(
     id: string,
     status: TableStatus,
@@ -93,9 +127,6 @@ export class RestaurantTableService {
     const payload: Partial<RestaurantTableEntity> = {
       ...(updateTableDto.tableNumber !== undefined
         ? { tableNumber: updateTableDto.tableNumber }
-        : {}),
-      ...(updateTableDto.qrCodeToken !== undefined
-        ? { qrCodeToken: updateTableDto.qrCodeToken }
         : {}),
       updatedBy: user.role,
     };

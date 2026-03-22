@@ -74,6 +74,13 @@ export class CategoryService {
     });
   }
 
+  async findByRestaurant(restaurantId: string) {
+    return await this.categoryRepository.find({
+      where: { restaurantId },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
   async findOne(id: string) {
     const category = await this.categoryRepository.findOne({ where: { id } });
     if (!category) {

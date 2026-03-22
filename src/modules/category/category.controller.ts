@@ -4,6 +4,7 @@ import {
   Post,
   Patch,
   Delete,
+  Param,
   Body,
   UseGuards,
 } from '@nestjs/common';
@@ -22,7 +23,7 @@ export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin') // Chỉ cho phép admin tạo category
+  @Roles('admin', 'manager') // Chỉ cho phép admin và manager tạo category
   @ApiOperation({ summary: 'Create a new category' })
   @Post()
   create(
@@ -38,24 +39,27 @@ export class CategoryController {
     return this.categoryService.findAll();
   }
 
+  @Get('restaurant/:restaurantId')
+  @ApiOperation({ summary: 'Get categories by restaurant ID' })
+  findByRestaurant(@Param('restaurantId') restaurantId: string) {
+    return this.categoryService.findByRestaurant(restaurantId);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin') // Chỉ cho phép admin cập nhật category
+  @Roles('admin', 'manager') // Chỉ cho phép admin và manager cập nhật category
   @Patch(':id')
   @ApiOperation({ summary: 'Update a category' })
   update(
+    @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
     @CurrentUser() currentUser: any,
   ) {
-    return this.categoryService.update(
-      updateCategoryDto.id,
-      updateCategoryDto,
-      currentUser,
-    );
+    return this.categoryService.update(id, updateCategoryDto, currentUser);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a category by ID' })
-  findOne(@Body('id') id: string) {
+  findOne(@Param('id') id: string) {
     return this.categoryService.findOne(id);
   }
 }

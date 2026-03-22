@@ -1,10 +1,4 @@
-import {
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { IsNotEmpty, IsNumber, IsUUID } from 'class-validator';
 
 export class CreateTableDto {
   @IsUUID()
@@ -14,7 +8,4 @@ export class CreateTableDto {
   @IsNotEmpty()
   @IsNumber()
   tableNumber: number;
-
-  @IsString()
-  qrCodeToken: string;
 }

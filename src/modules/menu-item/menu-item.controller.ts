@@ -16,7 +16,6 @@ import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { Roles } from '../account/decorators/role.decorator';
 import { CurrentUser } from '../account/decorators/current-user.decorator';
-import { AccountEntity } from 'src/entities/account.entity';
 import { CurrentUserDto } from '../account/dto/current-user.dto';
 
 @Controller('menu-items')
@@ -45,6 +44,12 @@ export class MenuItemController {
   @ApiOperation({ summary: 'Get menu item by ID' })
   findOne(@Param('id') id: string) {
     return this.menuItemService.findOne(id);
+  }
+
+  @Get('restaurant/:restaurantId')
+  @ApiOperation({ summary: 'Get menu items by restaurant ID' })
+  findByRestaurant(@Param('restaurantId') restaurantId: string) {
+    return this.menuItemService.findByRestaurant(restaurantId);
   }
 
   @Patch(':id')

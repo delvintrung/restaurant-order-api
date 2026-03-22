@@ -1,11 +1,4 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { CategoryEntity } from './category.entity';
 import { OrderItemEntity } from './order_item.entity';
 import { decimalTransformer } from '../common/database/decimal.transformer';
@@ -36,6 +29,9 @@ export class MenuItemEntity extends BaseEntity {
 
   @Column({ name: 'image_url' })
   imageUrl: string;
+
+  @Column({ name: 'unit', default: 'phần' })
+  unit: string;
 
   @Column({ name: 'is_available', default: true })
   isAvailable: boolean;

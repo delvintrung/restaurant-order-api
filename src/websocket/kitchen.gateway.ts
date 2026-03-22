@@ -60,10 +60,6 @@ export class KitchenGateway implements OnGatewayConnection {
 
     if (role === 'kitchen') {
       client.join(this.kitchenRoom(restaurantId));
-      console.log(`Kitchen connected to restaurant ${restaurantId}`);
-      console.log(
-        `${context.role} connected to restaurant ${context.restaurantId}, table ${context.tableId}`,
-      );
     }
   }
 
@@ -83,8 +79,6 @@ export class KitchenGateway implements OnGatewayConnection {
 
     client.join(room);
 
-    console.log(`Client ${client.id} joined ${room}`);
-
     return {
       event: 'joined-table',
       room,
@@ -101,8 +95,6 @@ export class KitchenGateway implements OnGatewayConnection {
 
     const room = this.kitchenRoom(context.restaurantId);
     client.join(room);
-
-    console.log(`Kitchen joined ${room}`);
 
     return {
       event: 'joined-kitchen',
@@ -121,8 +113,6 @@ export class KitchenGateway implements OnGatewayConnection {
     if (!tableId) {
       throw new WsException('tableId is required');
     }
-
-    console.log('Call waiter:', data);
 
     this.server.to(this.kitchenRoom(context.restaurantId)).emit('new-request', {
       restaurantId: context.restaurantId,
@@ -146,13 +136,14 @@ export class KitchenGateway implements OnGatewayConnection {
     if (context.role !== 'kitchen') {
       throw new WsException('Only kitchen clients can send kitchen-response');
     }
-
     const room = this.tableRoom(context.restaurantId, data.tableId);
 
     this.server.to(room).emit('waiter-response', {
       restaurantId: context.restaurantId,
       tableId: data.tableId,
       message: data.message,
+      sender: 'kitchen',
+      time: new Date(),
     });
 
     return {

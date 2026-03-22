@@ -38,6 +38,7 @@ export class MenuItemService {
       name: createMenuItemDto.name,
       description: createMenuItemDto.description,
       price: createMenuItemDto.price,
+      unit: createMenuItemDto.unit,
       imageUrl: createMenuItemDto.imageUrl,
       isAvailable: createMenuItemDto.isAvailable ?? true,
       createdBy: currentUser.role,
@@ -63,6 +64,17 @@ export class MenuItemService {
         category: true,
         restaurant: true,
       },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findByRestaurant(restaurantId: string): Promise<MenuItemEntity[]> {
+    return this.menuItemRepository.find({
+      where: { restaurantId },
+      // relations: {
+      //   category: true,
+      //   restaurant: true,
+      // },
       order: { createdAt: 'DESC' },
     });
   }
@@ -118,6 +130,10 @@ export class MenuItemService {
 
     if (updateMenuItemDto.isAvailable !== undefined) {
       menuItem.isAvailable = updateMenuItemDto.isAvailable;
+    }
+
+    if (updateMenuItemDto.unit !== undefined) {
+      menuItem.unit = updateMenuItemDto.unit;
     }
 
     menuItem.updatedBy = currentUser.userId;

@@ -22,6 +22,7 @@ import { OrderItemModule } from './modules/order-item/order-item.module';
 import { MenuItemModule } from './modules/menu-item/menu-item.module';
 import { ActionLogEntity } from './entities/action-log.entity';
 import { ActionLogModule } from './modules/actionLog/action-log.module';
+import { UploadFileModule } from './modules/uploadFile/upload-file.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { ActionLogModule } from './modules/actionLog/action-log.module';
     OrderItemModule,
     MenuItemModule,
     ActionLogModule,
+    UploadFileModule,
   ],
   controllers: [AppController],
   providers: [AppService],
