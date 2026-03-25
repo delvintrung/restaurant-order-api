@@ -82,7 +82,7 @@ export class RestaurantTableService {
 
     return await this.tableRepository.find({
       where: { restaurantId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'ASC' },
     });
   }
 
