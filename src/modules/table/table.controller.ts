@@ -17,6 +17,7 @@ import { RolesGuard } from 'src/guards/roles.guard';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { CurrentUserDto } from '../account/dto/current-user.dto';
+import { TableStatus } from 'src/common/enums/table-status.enum';
 
 @Injectable()
 @Controller('tables')
@@ -53,5 +54,15 @@ export class RestaurantTableController {
   @Get('restaurant/:restaurantId')
   async findAllTableByRestaurant(restaurantId: string) {
     return this.restaurantTableService.findAllTableByRestaurant(restaurantId);
+  }
+
+  @ApiOperation({ summary: 'Thay đổi trạng thái bàn' })
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() status: { status: TableStatus },
+    @CurrentUser() user: CurrentUserDto,
+  ) {
+    return this.restaurantTableService.changeStatus(id, status.status, user);
   }
 }

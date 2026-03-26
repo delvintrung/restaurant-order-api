@@ -16,7 +16,8 @@ import { OrderItemService } from './order-item.service';
 import { CreateOrderItemDto } from './dto/create-order-item.dto';
 import { UpdateOrderItemDto } from './dto/update-order-item.dto';
 import { CurrentUser } from '../account/decorators/current-user.decorator';
-import { AccountEntity } from 'src/entities/account.entity';
+import { InsertOrderItemDto } from './dto/insert-order-item.dto';
+import { CurrentUserDto } from '../account/dto/current-user.dto';
 
 @Controller('order-items')
 @ApiTags('order-items')
@@ -29,7 +30,7 @@ export class OrderItemController {
   @Post()
   create(
     @Body() createOrderItemDto: CreateOrderItemDto,
-    @CurrentUser() currentUser: AccountEntity,
+    @CurrentUser() currentUser: CurrentUserDto,
   ) {
     return this.orderItemService.create(createOrderItemDto, currentUser);
   }
@@ -41,7 +42,7 @@ export class OrderItemController {
   update(
     @Param('id') id: string,
     @Body() updateOrderItemDto: UpdateOrderItemDto,
-    @CurrentUser() currentUser: AccountEntity,
+    @CurrentUser() currentUser: CurrentUserDto,
   ) {
     return this.orderItemService.update(id, updateOrderItemDto, currentUser);
   }
@@ -50,7 +51,7 @@ export class OrderItemController {
   @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Delete an order item' })
   @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() currentUser: AccountEntity) {
+  remove(@Param('id') id: string, @CurrentUser() currentUser: CurrentUserDto) {
     return this.orderItemService.remove(id, currentUser);
   }
 
@@ -68,5 +69,19 @@ export class OrderItemController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.orderItemService.findOne(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager', 'admin')
+  @ApiOperation({ summary: 'Add an item to an order' })
+  @Post('add-item')
+  insertItemToOrder(
+    @Body() insertOrderItemPayload: InsertOrderItemDto,
+    @CurrentUser() currentUser: CurrentUserDto,
+  ) {
+    return this.orderItemService.insertItemToOrder(
+      insertOrderItemPayload,
+      currentUser,
+    );
   }
 }

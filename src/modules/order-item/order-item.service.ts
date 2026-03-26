@@ -5,11 +5,12 @@ import { Repository } from 'typeorm';
 import { CreateOrderItemDto } from './dto/create-order-item.dto';
 import { UpdateOrderItemDto } from './dto/update-order-item.dto';
 import { MenuItemEntity } from 'src/entities/menu-item.entity';
-import { AccountEntity } from 'src/entities/account.entity';
 import { OrderService } from '../order/order.service';
 import { ActionLogService } from '../actionLog/action-log.service';
 import { CreateActionLogDto } from '../actionLog/dto/create-action-log.dto';
 import { CurrentUserDto } from '../account/dto/current-user.dto';
+import { InsertOrderItemDto } from './dto/insert-order-item.dto';
+import { UpdateOrderGateway } from 'src/websocket/update-order.gateway';
 
 @Injectable()
 export class OrderItemService {
@@ -20,27 +21,13 @@ export class OrderItemService {
     private readonly menuItemRepository: Repository<MenuItemEntity>,
     private readonly orderService: OrderService,
     private readonly actionLogService: ActionLogService,
+    private readonly updateOrderGateway: UpdateOrderGateway,
   ) {}
-
-  private resolveActor(currentUser: CurrentUserDto | AccountEntity) {
-    const userId =
-      (currentUser as CurrentUserDto).userId ??
-      (currentUser as AccountEntity).id;
-    const restaurantId =
-      (currentUser as CurrentUserDto).restaurantId ??
-      (currentUser as AccountEntity).restaurantId;
-    const role =
-      (currentUser as CurrentUserDto).role ??
-      String((currentUser as AccountEntity).role ?? 'system');
-
-    return { userId, restaurantId, role };
-  }
 
   async create(
     createOrderItemDto: CreateOrderItemDto,
-    currentUser: AccountEntity,
+    currentUser: CurrentUserDto,
   ): Promise<OrderItemEntity> {
-    const actor = this.resolveActor(currentUser);
     await this.orderService.findOne(createOrderItemDto.orderId);
 
     const menuItem = await this.menuItemRepository.findOne({
@@ -59,26 +46,26 @@ export class OrderItemService {
       quantity: createOrderItemDto.quantity,
       priceAtOrder: menuItem.price,
       note: createOrderItemDto.note,
-      createdBy: actor.userId,
+      createdBy: currentUser.userId,
     });
 
     const savedItem = await this.orderItemRepository.save(orderItem);
     await this.orderService.recalculateOrderTotal(
       createOrderItemDto.orderId,
-      actor.userId,
+      currentUser.userId,
     );
 
     const actionLogDto: CreateActionLogDto = {
-      userId: actor.userId,
-      restaurantId: actor.restaurantId,
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
       action: 'CREATE_ORDER_ITEM',
       description: `Thêm món vào đơn ${savedItem.orderId}: ${savedItem.menuItemId}`,
     };
 
     await this.actionLogService.create(actionLogDto, {
-      userId: actor.userId,
-      restaurantId: actor.restaurantId,
-      role: actor.role,
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
+      role: currentUser.role,
     });
 
     return this.findOne(savedItem.id);
@@ -113,9 +100,8 @@ export class OrderItemService {
   async update(
     id: string,
     updateOrderItemDto: UpdateOrderItemDto,
-    currentUser: AccountEntity,
+    currentUser: CurrentUserDto,
   ): Promise<OrderItemEntity> {
-    const actor = this.resolveActor(currentUser);
     const orderItem = await this.findOne(id);
 
     if (updateOrderItemDto.menuItemId) {
@@ -141,25 +127,25 @@ export class OrderItemService {
       orderItem.note = updateOrderItemDto.note;
     }
 
-    orderItem.updatedBy = actor.userId;
+    orderItem.updatedBy = currentUser.userId;
 
     await this.orderItemRepository.save(orderItem);
     await this.orderService.recalculateOrderTotal(
       orderItem.orderId,
-      actor.userId,
+      currentUser.userId,
     );
 
     const actionLogDto: CreateActionLogDto = {
-      userId: actor.userId,
-      restaurantId: actor.restaurantId,
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
       action: 'UPDATE_ORDER_ITEM',
       description: `Cập nhật món trong đơn ${orderItem.orderId}: ${orderItem.id}`,
     };
 
     await this.actionLogService.create(actionLogDto, {
-      userId: actor.userId,
-      restaurantId: actor.restaurantId,
-      role: actor.role,
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
+      role: currentUser.role,
     });
 
     return this.findOne(id);
@@ -167,28 +153,84 @@ export class OrderItemService {
 
   async remove(
     id: string,
-    currentUser: AccountEntity,
+    currentUser: CurrentUserDto,
   ): Promise<{ message: string }> {
-    const actor = this.resolveActor(currentUser);
     const orderItem = await this.findOne(id);
     const orderId = orderItem.orderId;
 
     await this.orderItemRepository.remove(orderItem);
-    await this.orderService.recalculateOrderTotal(orderId, actor.userId);
+    await this.orderService.recalculateOrderTotal(orderId, currentUser.userId);
 
     const actionLogDto: CreateActionLogDto = {
-      userId: actor.userId,
-      restaurantId: actor.restaurantId,
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
       action: 'DELETE_ORDER_ITEM',
       description: `Xóa món khỏi đơn ${orderId}: ${id}`,
     };
 
     await this.actionLogService.create(actionLogDto, {
-      userId: actor.userId,
-      restaurantId: actor.restaurantId,
-      role: actor.role,
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
+      role: currentUser.role,
     });
 
     return { message: `Order item ${id} deleted successfully` };
+  }
+
+  async insertItemToOrder(
+    insertOrderItemDto: InsertOrderItemDto,
+    currentUser: CurrentUserDto,
+  ): Promise<OrderItemEntity> {
+    const order = await this.orderService.findOne(insertOrderItemDto.orderId);
+
+    if (!order) {
+      throw new NotFoundException(
+        `Order with ID ${insertOrderItemDto.orderId} not found`,
+      );
+    }
+
+    const menuItem = await this.menuItemRepository.findOne({
+      where: { id: insertOrderItemDto.menuItemId },
+    });
+
+    if (!menuItem) {
+      throw new NotFoundException(
+        `Menu item with ID ${insertOrderItemDto.menuItemId} not found`,
+      );
+    }
+
+    const createOrderItemDto: CreateOrderItemDto = {
+      orderId: insertOrderItemDto.orderId,
+      menuItemId: insertOrderItemDto.menuItemId,
+      quantity: insertOrderItemDto.quantity,
+      note: insertOrderItemDto.note,
+    };
+
+    const actionLogDto: CreateActionLogDto = {
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
+      action: 'INSERT_ORDER_ITEM',
+      description: `Thêm món vào đơn ${insertOrderItemDto.orderId}: ${insertOrderItemDto.menuItemId}`,
+    };
+
+    await this.actionLogService.create(actionLogDto, {
+      userId: currentUser.userId,
+      restaurantId: currentUser.restaurantId,
+      role: currentUser.role,
+    });
+
+    const newOrderItem = await this.create(createOrderItemDto, currentUser);
+
+    this.updateOrderGateway.EmitAddItem({
+      restaurantId: currentUser.restaurantId,
+      tableId: order.tableId,
+      orderId: order.id,
+      item: {
+        id: newOrderItem.id,
+        menuItemId: newOrderItem.menuItemId,
+      },
+    });
+
+    return newOrderItem;
   }
 }

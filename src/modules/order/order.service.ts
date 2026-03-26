@@ -11,6 +11,7 @@ import { AccountEntity } from 'src/entities/account.entity';
 import { CurrentUserDto } from '../account/dto/current-user.dto';
 import { ActionLogService } from '../actionLog/action-log.service';
 import { CreateActionLogDto } from '../actionLog/dto/create-action-log.dto';
+import { UpdateOrderGateway } from 'src/websocket/update-order.gateway';
 
 @Injectable()
 export class OrderService {
@@ -22,6 +23,7 @@ export class OrderService {
     @InjectRepository(MenuItemEntity)
     private readonly menuItemRepository: Repository<MenuItemEntity>,
     private readonly actionLogService: ActionLogService,
+    private readonly updateOrderGateway: UpdateOrderGateway,
   ) {}
 
   private resolveActor(currentUser: CurrentUserDto | AccountEntity) {
@@ -90,6 +92,12 @@ export class OrderService {
     };
 
     await this.actionLogService.create(actionLogDto, currentUser);
+
+    this.updateOrderGateway.EmitNewOrder({
+      restaurantId: currentUser.restaurantId,
+      tableId: savedOrder.tableId,
+      orderId: savedOrder.id,
+    });
 
     return this.findOne(savedOrder.id);
   }

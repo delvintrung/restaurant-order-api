@@ -4,5 +4,6 @@ import { UpdateOrderGateway } from './update-order.gateway';
 
 @Module({
   providers: [KitchenGateway, UpdateOrderGateway],
+  exports: [KitchenGateway, UpdateOrderGateway],
 })
 export class WebsocketModule {}

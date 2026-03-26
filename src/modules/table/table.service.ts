@@ -111,6 +111,7 @@ export class RestaurantTableService {
   async changeStatus(
     id: string,
     status: TableStatus,
+    @CurrentUser() user: CurrentUserDto,
   ): Promise<RestaurantTableEntity> {
     const table = await this.findOne(id);
     table.status = status as any;

@@ -37,6 +37,8 @@ export class KitchenGateway implements OnGatewayConnection {
   handleConnection(client: Socket) {
     const { restaurantId, role, tableId } = client.handshake.auth || {};
 
+    console.log('New client connected:', { restaurantId, role, tableId });
+
     if (!restaurantId || (role !== 'table' && role !== 'kitchen')) {
       client.disconnect(true);
       return;

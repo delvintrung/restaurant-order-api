@@ -11,7 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { OrderItemStatus } from 'src/common/enums/order-item.enum';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
 
-type ClientRole = 'table' | 'kitchen' | 'manager' | 'admin';
+type ClientRole = 'table' | 'kitchen';
 
 interface ClientContext {
   restaurantId: string;
@@ -24,20 +24,37 @@ interface Base {
   orderId: string;
 }
 
-interface AddItemData extends Base {
-  menuItemId: string;
+interface AddItemData {
+  categoryId: string;
+  restaurantId: string;
+  name: string;
+  description?: string;
+  price: number;
+  imageUrl: string;
+  unit: string;
   quantity: number;
   note?: string;
 }
 
-interface ChangeOrderStatusData extends Base {
-  newStatus: OrderStatus;
+interface CreateOrderData {
+  orderId: string;
+  tableId: string;
+  restaurantId: string;
 }
 
 interface ChangeOrderItemStatusData extends Base {
   newStatus: OrderItemStatus;
 }
 
+interface InsertOrderItemData {
+  restaurantId: string;
+  tableId: string;
+  orderId: string;
+  item: {
+    id: string;
+    menuItemId: string;
+  };
+}
 @WebSocketGateway({
   cors: {
     origin: '*',
@@ -72,51 +89,40 @@ export class UpdateOrderGateway implements OnGatewayConnection {
   @WebSocketServer()
   server: Server;
 
-  @SubscribeMessage('orders')
-  async handleOrderUpdate(
-    @MessageBody() data: ChangeOrderStatusData,
-    @ConnectedSocket() client: Socket,
-  ) {
-    const context = this.getContext(client);
-    const tableId = context.role === 'table' ? context.tableId : data.tableId;
+  EmitNewOrder(@MessageBody() data: CreateOrderData) {
+    const tableId = data.tableId;
 
     if (!tableId) {
       throw new WsException('tableId is required');
     }
 
-    const room = this.tableRoom(context.restaurantId, tableId);
-    console.log('Cập nhật trạng thái đơn hàng:', data);
+    const room = this.kitchenRoom(data.restaurantId);
 
-    this.server.to(room).emit('order-updated', {
-      restaurantId: context.restaurantId,
-      tableId,
+    this.server.to(room).emit('new-order', {
+      restaurantId: data.restaurantId,
+      tableId: data.tableId,
       orderId: data.orderId,
-      newStatus: data.newStatus,
       time: new Date(),
     });
   }
 
-  @SubscribeMessage('add-item')
-  async handleAddItem(
-    @MessageBody() data: AddItemData,
-    @ConnectedSocket() client: Socket,
+  EmitAddItem(
+    @MessageBody()
+    data: InsertOrderItemData,
   ) {
-    const context = this.getContext(client);
-    const tableId = context.role === 'table' ? context.tableId : data.tableId;
+    const tableId = this.tableRoom(data.restaurantId, data.tableId);
+
+    console.log('Emitting item added:', tableId);
 
     if (!tableId) {
       throw new WsException('tableId is required');
     }
 
-    const room = this.tableRoom(context.restaurantId, tableId);
-
-    this.server.to(room).emit('item-added', {
-      restaurantId: context.restaurantId,
-      tableId,
+    this.server.to(tableId).emit('item-added', {
+      restaurantId: data.restaurantId,
       orderId: data.orderId,
-      menuItemId: data.menuItemId,
-      quantity: data.quantity,
-      note: data.note,
+      tableId,
+      item: data.item,
       time: new Date(),
     });
   }
@@ -159,5 +165,9 @@ export class UpdateOrderGateway implements OnGatewayConnection {
 
   private tableRoom(restaurantId: string, tableId: string): string {
     return `restaurant-${restaurantId}-table-${tableId}`;
+  }
+
+  private kitchenRoom(restaurantId: string): string {
+    return `restaurant-${restaurantId}-kitchen`;
   }
 }
