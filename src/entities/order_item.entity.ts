@@ -3,6 +3,7 @@ import { MenuItemEntity } from './menu-item.entity';
 import { OrderEntity } from './orders.entity';
 import { decimalTransformer } from '../common/database/decimal.transformer';
 import { BaseEntity } from './base.entity';
+import { OrderItemStatus } from 'src/common/enums/order-item.enum';
 
 @Entity('order_items')
 export class OrderItemEntity extends BaseEntity {
@@ -23,6 +24,14 @@ export class OrderItemEntity extends BaseEntity {
     transformer: decimalTransformer,
   })
   priceAtOrder: number;
+
+  @Column({
+    type: 'simple-enum',
+    name: 'status',
+    enum: OrderItemStatus,
+    default: OrderItemStatus.PENDING,
+  })
+  status?: OrderItemStatus;
 
   @Column({ type: 'text', nullable: true })
   note?: string;

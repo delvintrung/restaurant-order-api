@@ -25,14 +25,9 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Create a new order' })
-  create(
-    @Body() createOrderDto: CreateOrderDto,
-    @CurrentUser() currentUser: CurrentUserDto,
-  ) {
-    return this.orderService.create(createOrderDto, currentUser);
+  create(@Body() createOrderDto: CreateOrderDto) {
+    return this.orderService.create(createOrderDto);
   }
 
   @Get()
@@ -44,8 +39,6 @@ export class OrderController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Get order details by ID' })
   findOne(@Param('id') id: string) {
     return this.orderService.findOne(id);

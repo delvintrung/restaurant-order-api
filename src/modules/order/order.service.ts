@@ -40,15 +40,12 @@ export class OrderService {
     return { userId, restaurantId, role };
   }
 
-  async create(
-    createOrderDto: CreateOrderDto,
-    currentUser: CurrentUserDto,
-  ): Promise<OrderEntity> {
+  async create(createOrderDto: CreateOrderDto): Promise<OrderEntity> {
     const order = this.orderRepository.create({
       tableId: createOrderDto.tableId,
       totalPrice: 0,
       status: OrderStatus.PENDING,
-      createdBy: currentUser.role,
+      createdBy: 'customer',
     });
 
     const savedOrder = await this.orderRepository.save(order);
@@ -74,7 +71,7 @@ export class OrderService {
             quantity: itemDto.quantity,
             priceAtOrder: menuItem.price,
             note: itemDto.note,
-            createdBy: currentUser.role,
+            createdBy: 'customer',
           }),
         );
       }
@@ -82,19 +79,10 @@ export class OrderService {
       await this.orderItemRepository.save(orderItems);
     }
 
-    await this.recalculateOrderTotal(savedOrder.id, currentUser.userId);
-
-    const actionLogDto: CreateActionLogDto = {
-      userId: currentUser.userId,
-      restaurantId: currentUser.restaurantId,
-      action: 'CREATE_ORDER',
-      description: `Tạo đơn hàng: ${savedOrder.id}`,
-    };
-
-    await this.actionLogService.create(actionLogDto, currentUser);
+    await this.recalculateOrderTotal(savedOrder.id);
 
     this.updateOrderGateway.EmitNewOrder({
-      restaurantId: currentUser.restaurantId,
+      restaurantId: createOrderDto.restaurantId,
       tableId: savedOrder.tableId,
       orderId: savedOrder.id,
     });
@@ -106,6 +94,7 @@ export class OrderService {
     return this.orderRepository.find({
       relations: {
         items: true,
+        table: true,
       },
       order: { createdAt: 'DESC' },
     });
@@ -115,7 +104,10 @@ export class OrderService {
     const order = await this.orderRepository.findOne({
       where: { id },
       relations: {
-        items: true,
+        table: true,
+        items: {
+          menuItem: true,
+        },
       },
     });
 

@@ -152,4 +152,15 @@ export class RestaurantTableService {
     await this.tableRepository.remove(table);
     return { message: `Đã xóa bàn ${table.tableNumber} thành công` };
   }
+
+  async checkValidTable(
+    restaurantId: string,
+    tableId: string,
+    token: string,
+  ): Promise<boolean> {
+    const table = await this.tableRepository.findOne({
+      where: { id: tableId, restaurantId, qrCodeToken: token },
+    });
+    return !!table;
+  }
 }

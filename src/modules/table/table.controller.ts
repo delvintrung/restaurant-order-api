@@ -65,4 +65,25 @@ export class RestaurantTableController {
   ) {
     return this.restaurantTableService.changeStatus(id, status.status, user);
   }
+
+  @ApiOperation({ summary: 'Kiểm tra tính hợp lệ của bàn qua mã QR' })
+  @Post('check-valid')
+  async checkValidTable(
+    @Body() body: { restaurantId: string; tableId: string; token: string },
+  ) {
+    const { restaurantId, tableId, token } = body;
+    const isValid = await this.restaurantTableService.checkValidTable(
+      restaurantId,
+      tableId,
+      token,
+    );
+
+    return { isValid };
+  }
+
+  @ApiOperation({ summary: 'Lấy thông tin bàn qua ID' })
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.restaurantTableService.findOne(id);
+  }
 }

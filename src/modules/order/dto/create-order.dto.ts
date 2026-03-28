@@ -31,6 +31,10 @@ export class CreateOrderItemDto {
 export class CreateOrderDto {
   @ApiProperty({ example: '6a460dac-3768-42ef-a2d8-6051fd5a6f4a' })
   @IsUUID()
+  restaurantId: string;
+
+  @ApiProperty({ example: '6a460dac-3768-42ef-a2d8-6051fd5a6f4a' })
+  @IsUUID()
   tableId: string;
 
   @ApiProperty({ type: [CreateOrderItemDto] })
